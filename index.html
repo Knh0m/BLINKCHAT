@@ -13,18 +13,40 @@
       theme: {
         extend: {
           colors: {
-            'chat-bg': '#121212',
+            'chat-bg': '#0F172A',
+            'chat-surface': '#1E293B',
             'chat-primary': '#3B82F6',
-            'chat-secondary': '#4B5563'
+            'chat-secondary': '#64748B',
+            'chat-accent': '#38BDF8',
+            'chat-success': '#10B981',
+            'chat-warning': '#F59E0B',
+            'chat-danger': '#EF4444',
+            'chat-text': '#F1F5F9',
+            'chat-text-secondary': '#94A3B8'
           },
           animation: {
             'fade-in': 'fadeIn 0.2s ease-in-out',
+            'slide-in': 'slideIn 0.3s ease-out',
+            'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'bounce-small': 'bounceSmall 1s infinite'
           },
           keyframes: {
             fadeIn: {
               '0%': { opacity: '0' },
               '100%': { opacity: '1' },
+            },
+            slideIn: {
+              '0%': { transform: 'translateY(10px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            },
+            bounceSmall: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-3px)' }
             }
+          },
+          boxShadow: {
+            'chat': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            'chat-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
           }
         }
       }
@@ -33,77 +55,143 @@
   <style>
     /* Custom scrollbar for chat area */
     #chat-messages::-webkit-scrollbar {
-      width: 6px;
+      width: 4px;
     }
     #chat-messages::-webkit-scrollbar-track {
-      background: #1F2937;
+      background: #1E293B;
+      border-radius: 2px;
     }
     #chat-messages::-webkit-scrollbar-thumb {
-      background: #4B5563;
-      border-radius: 3px;
+      background: #475569;
+      border-radius: 2px;
     }
     #chat-messages::-webkit-scrollbar-thumb:hover {
-      background: #6B7280;
+      background: #64748B;
     }
     /* Ensure the page fills the viewport */
     html, body {
       height: 100%;
       overflow: hidden;
     }
+    /* Typing indicator animation */
+    .typing-dot {
+      animation: typingAnimation 1.4s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(1) {
+      animation-delay: 0s;
+    }
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes typingAnimation {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-4px); }
+    }
+    /* Message bubble animations */
+    .message-bubble {
+      transition: all 0.2s ease;
+    }
+    .message-bubble:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    /* Button hover effects */
+    .btn-effect {
+      transition: all 0.2s ease;
+    }
+    .btn-effect:hover {
+      transform: translateY(-1px);
+    }
+    .btn-effect:active {
+      transform: translateY(1px);
+    }
   </style>
 </head>
-<body class="bg-chat-bg text-gray-200 dark">
+<body class="bg-chat-bg text-chat-text dark">
   <main class="flex flex-col h-screen max-h-screen p-4 mx-auto max-w-2xl">
     <!-- Status bar -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-4 p-3 bg-chat-surface rounded-lg shadow-chat">
       <div class="flex items-center">
-        <div id="status-indicator" class="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>
-        <span id="status-text" class="text-sm">Connecting...</span>
+        <div id="status-indicator" class="w-3 h-3 rounded-full bg-chat-warning mr-2"></div>
+        <span id="status-text" class="text-sm font-medium">Connecting...</span>
       </div>
-      <div class="flex items-center">
-        <span id="nickname" class="text-sm mr-2 font-medium"></span>
-        <button id="new-chat-btn" class="bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-3 rounded transition-colors">
-          New Chat
+      <div class="flex items-center space-x-3">
+        <!-- Sound toggle button -->
+        <button id="sound-toggle" class="text-chat-text-secondary hover:text-chat-text btn-effect" aria-label="Toggle sound">
+          <svg id="sound-on-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"></path>
+          </svg>
+          <svg id="sound-off-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+        <span id="nickname" class="text-sm font-medium px-2 py-1 bg-chat-primary bg-opacity-20 rounded-md"></span>
+        <button id="new-chat-btn" class="bg-chat-danger hover:bg-opacity-90 text-white text-sm py-1.5 px-3 rounded-md transition-colors flex items-center space-x-1 btn-effect">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+          </svg>
+          <span>New Chat</span>
         </button>
       </div>
     </div>
     
     <!-- Chat messages area -->
-    <section id="chat-messages" class="flex-grow overflow-y-auto mb-4 space-y-3 p-2">
+    <section id="chat-messages" class="flex-grow overflow-y-auto mb-4 space-y-3 p-3 bg-chat-surface rounded-lg shadow-chat">
       <!-- Messages will be added here dynamically -->
     </section>
     
+    <!-- Typing indicator -->
+    <div id="typing-indicator" class="hidden mb-2 px-4 py-2 bg-chat-surface bg-opacity-70 rounded-lg max-w-[60%] animate-fade-in">
+      <div class="flex items-center space-x-2">
+        <span class="text-sm text-chat-text-secondary" id="typing-nickname"></span>
+        <div class="flex space-x-1">
+          <div class="typing-dot w-1.5 h-1.5 rounded-full bg-chat-accent"></div>
+          <div class="typing-dot w-1.5 h-1.5 rounded-full bg-chat-accent"></div>
+          <div class="typing-dot w-1.5 h-1.5 rounded-full bg-chat-accent"></div>
+        </div>
+      </div>
+    </div>
+    
     <!-- Input area - fixed at bottom -->
-    <section class="sticky bottom-0 bg-gray-800 rounded-lg p-2 shadow-lg">
+    <section class="sticky bottom-0 bg-chat-surface rounded-lg p-3 shadow-chat-lg">
       <form id="message-form" class="flex items-center">
         <input 
           id="message-input" 
           type="text" 
           placeholder="Type a message..." 
           maxlength="500" 
-          class="flex-grow bg-gray-700 text-white rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="flex-grow bg-chat-bg text-chat-text rounded-l-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-chat-accent"
           aria-label="Message input"
         >
         <button 
           type="submit" 
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-lg transition-colors"
+          class="bg-chat-primary hover:bg-opacity-90 text-white px-5 py-3 rounded-r-lg transition-colors flex items-center space-x-2 btn-effect"
           aria-label="Send message"
         >
-          Send
+          <span>Send</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+          </svg>
         </button>
       </form>
     </section>
   </main>
 
+  <!-- Audio element for notification sound -->
+  <audio id="notification-sound" preload="auto"></audio>
+
   <!-- Templates for message bubbles -->
   <template id="message-template">
-    <div class="message-container animate-fade-in">
-      <div class="nickname text-xs text-gray-400 mb-1"></div>
-      <div class="message-bubble p-3 rounded-lg max-w-[80%] break-words"></div>
+    <div class="message-container animate-slide-in">
+      <div class="nickname text-xs text-chat-text-secondary mb-1 font-medium"></div>
+      <div class="message-bubble p-3 rounded-lg max-w-[80%] break-words shadow-chat"></div>
     </div>
   </template>
 
-  <!-- Load JavaScript module -->
+  <!-- Load JavaScript modules -->
   <script type="module" src="main.js"></script>
 </body>
 </html>
