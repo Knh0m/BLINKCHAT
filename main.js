@@ -7,6 +7,7 @@ const HEARTBEAT_INTERVAL = 25000; // 25 seconds (shorter than server's 30s)
 const MAX_MESSAGE_LENGTH = 500;
 const TYPING_DEBOUNCE_DELAY = 300; // ms delay for typing indicator
 const TYPING_TIMEOUT = 3000; // ms before typing indicator disappears
+const CONTEXT_MENU_TIMEOUT = 5000; // ms before context menu auto-closes
 
 // ===== Notification Sound =====
 // Base64 encoded MP3 data for a subtle notification sound
@@ -37,6 +38,7 @@ let socket;
 let heartbeatTimer;
 let reconnectTimer;
 let typingTimer;
+let contextMenuTimer;
 let clientId = null;
 let nickname = null;
 let partnerId = null;
@@ -44,6 +46,11 @@ let partnerNickname = null;
 let connectionStatus = 'disconnected'; // 'disconnected', 'connecting', 'waiting', 'matched'
 let isTyping = false;
 let soundEnabled = localStorage.getItem('soundEnabled') !== 'false'; // Default to true
+let activeContextMenu = null;
+let replyingToMessageId = null;
+let editingMessageId = null;
+let messages = new Map(); // Store messages by ID for easy reference
+let messageCounter = 0; // Used to generate unique IDs
 
 // ===== DOM Elements =====
 const statusIndicator = document.getElementById('status-indicator');
@@ -59,6 +66,11 @@ const typingNickname = document.getElementById('typing-nickname');
 const soundToggle = document.getElementById('sound-toggle');
 const soundOnIcon = document.getElementById('sound-on-icon');
 const soundOffIcon = document.getElementById('sound-off-icon');
+const replyBanner = document.getElementById('reply-banner');
+const replyPreview = document.getElementById('reply-preview');
+const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+const editBanner = document.getElementById('edit-banner');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
 // ===== Nickname Generation =====
 const adjectives = [
@@ -95,6 +107,104 @@ function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => func.apply(context, args), wait);
   };
+}
+
+/**
+ * Generate a unique message ID
+ * @returns {string} Unique message ID
+ */
+function generateMessageId() {
+  messageCounter++;
+  return `msg_${Date.now()}_${messageCounter}`;
+}
+
+/**
+ * Creates a context menu for message actions
+ * @param {string} messageId - ID of the message
+ * @param {boolean} isOwn - Whether the message is from the current user
+ * @param {HTMLElement} messageElement - The message element
+ * @returns {HTMLElement} The context menu element
+ */
+function createContextMenu(messageId, isOwn, messageElement) {
+  // Remove any existing context menus
+  removeContextMenu();
+  
+  // Create context menu
+  const contextMenu = document.createElement('div');
+  contextMenu.className = 'absolute z-10 bg-chat-surface rounded-lg shadow-chat-lg py-1 w-36 right-0 mt-1';
+  contextMenu.id = 'context-menu';
+  
+  // Add actions based on message ownership
+  if (isOwn) {
+    // Edit option (only for own messages)
+    const editOption = document.createElement('button');
+    editOption.className = 'w-full text-left px-4 py-2 text-chat-text hover:bg-chat-primary hover:bg-opacity-10 flex items-center';
+    editOption.innerHTML = `
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+      </svg>
+      Edit
+    `;
+    editOption.addEventListener('click', () => {
+      startEditingMessage(messageId);
+      removeContextMenu();
+    });
+    contextMenu.appendChild(editOption);
+    
+    // Delete option (only for own messages)
+    const deleteOption = document.createElement('button');
+    deleteOption.className = 'w-full text-left px-4 py-2 text-chat-danger hover:bg-chat-danger hover:bg-opacity-10 flex items-center';
+    deleteOption.innerHTML = `
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+      </svg>
+      Delete
+    `;
+    deleteOption.addEventListener('click', () => {
+      deleteMessage(messageId);
+      removeContextMenu();
+    });
+    contextMenu.appendChild(deleteOption);
+  }
+  
+  // Reply option (for all messages)
+  const replyOption = document.createElement('button');
+  replyOption.className = 'w-full text-left px-4 py-2 text-chat-text hover:bg-chat-primary hover:bg-opacity-10 flex items-center';
+  replyOption.innerHTML = `
+    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+    </svg>
+    Reply
+  `;
+  replyOption.addEventListener('click', () => {
+    startReplyingToMessage(messageId);
+    removeContextMenu();
+  });
+  contextMenu.appendChild(replyOption);
+  
+  // Position context menu
+  const messageRect = messageElement.getBoundingClientRect();
+  contextMenu.style.position = 'absolute';
+  
+  // Set auto-close timer
+  clearTimeout(contextMenuTimer);
+  contextMenuTimer = setTimeout(removeContextMenu, CONTEXT_MENU_TIMEOUT);
+  
+  // Track active context menu
+  activeContextMenu = contextMenu;
+  
+  return contextMenu;
+}
+
+/**
+ * Removes any active context menu
+ */
+function removeContextMenu() {
+  if (activeContextMenu) {
+    activeContextMenu.remove();
+    activeContextMenu = null;
+    clearTimeout(contextMenuTimer);
+  }
 }
 
 // ===== WebSocket Management =====
@@ -164,6 +274,12 @@ function handleSocketMessage(event) {
         break;
       case 'stopped-typing':
         hideTypingIndicator();
+        break;
+      case 'edit':
+        handleMessageEdit(data);
+        break;
+      case 'delete':
+        handleMessageDelete(data);
         break;
       default:
         console.log(`Unknown message type: ${data.type}`);
@@ -250,29 +366,270 @@ const debouncedTyping = debounce(function(isTyping) {
   sendTypingStatus(isTyping);
 }, TYPING_DEBOUNCE_DELAY);
 
+// ===== Message Actions =====
+
+/**
+ * Start editing a message
+ * @param {string} messageId - ID of the message to edit
+ */
+function startEditingMessage(messageId) {
+  const message = messages.get(messageId);
+  if (!message || !message.isOwn) return;
+  
+  // Set editing state
+  editingMessageId = messageId;
+  
+  // Show edit banner
+  editBanner.classList.remove('hidden');
+  
+  // Set input value to message content
+  messageInput.value = message.text;
+  messageInput.focus();
+  
+  // Highlight the message being edited
+  const messageElement = document.getElementById(messageId);
+  if (messageElement) {
+    messageElement.classList.add('editing');
+  }
+  
+  // Cancel any active reply
+  cancelReply();
+}
+
+/**
+ * Cancel editing a message
+ */
+function cancelEdit() {
+  if (!editingMessageId) return;
+  
+  // Clear editing state
+  const messageElement = document.getElementById(editingMessageId);
+  if (messageElement) {
+    messageElement.classList.remove('editing');
+  }
+  
+  editingMessageId = null;
+  
+  // Hide edit banner
+  editBanner.classList.add('hidden');
+  
+  // Clear input
+  messageInput.value = '';
+}
+
+/**
+ * Save edited message
+ */
+function saveEdit() {
+  if (!editingMessageId) return;
+  
+  const message = messages.get(editingMessageId);
+  if (!message) return;
+  
+  const newText = messageInput.value.trim();
+  if (newText.length === 0 || newText.length > MAX_MESSAGE_LENGTH) return;
+  
+  // Update message in local storage
+  message.text = newText;
+  message.edited = true;
+  messages.set(editingMessageId, message);
+  
+  // Update UI
+  const messageElement = document.getElementById(editingMessageId);
+  if (messageElement) {
+    const bubbleElement = messageElement.querySelector('.message-bubble');
+    if (bubbleElement) {
+      // Update message text
+      bubbleElement.innerHTML = `${newText} <span class="text-xs text-chat-text-secondary ml-2">(edited)</span>`;
+    }
+    messageElement.classList.remove('editing');
+  }
+  
+  // Send edit to server
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'edit',
+      messageId: editingMessageId,
+      message: newText,
+      nickname: nickname
+    }));
+  }
+  
+  // Clear editing state
+  cancelEdit();
+}
+
+/**
+ * Handle message edit from partner
+ * @param {Object} data - Edit data
+ */
+function handleMessageEdit(data) {
+  const messageId = data.messageId;
+  const message = messages.get(messageId);
+  if (!message) return;
+  
+  // Update message in local storage
+  message.text = data.message;
+  message.edited = true;
+  messages.set(messageId, message);
+  
+  // Update UI
+  const messageElement = document.getElementById(messageId);
+  if (messageElement) {
+    const bubbleElement = messageElement.querySelector('.message-bubble');
+    if (bubbleElement) {
+      // Update message text
+      bubbleElement.innerHTML = `${data.message} <span class="text-xs text-chat-text-secondary ml-2">(edited)</span>`;
+    }
+  }
+}
+
+/**
+ * Delete a message
+ * @param {string} messageId - ID of the message to delete
+ */
+function deleteMessage(messageId) {
+  const message = messages.get(messageId);
+  if (!message || !message.isOwn) return;
+  
+  // Update message in local storage
+  message.deleted = true;
+  messages.set(messageId, message);
+  
+  // Update UI
+  const messageElement = document.getElementById(messageId);
+  if (messageElement) {
+    const bubbleElement = messageElement.querySelector('.message-bubble');
+    if (bubbleElement) {
+      // Replace message text with deletion notice
+      bubbleElement.innerHTML = `<span class="italic text-chat-text-secondary">This message was deleted</span>`;
+      bubbleElement.classList.add('deleted-message');
+    }
+  }
+  
+  // Send delete to server
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({
+      type: 'delete',
+      messageId: messageId,
+      nickname: nickname
+    }));
+  }
+  
+  // If we're editing this message, cancel the edit
+  if (editingMessageId === messageId) {
+    cancelEdit();
+  }
+  
+  // If we're replying to this message, cancel the reply
+  if (replyingToMessageId === messageId) {
+    cancelReply();
+  }
+}
+
+/**
+ * Handle message delete from partner
+ * @param {Object} data - Delete data
+ */
+function handleMessageDelete(data) {
+  const messageId = data.messageId;
+  const message = messages.get(messageId);
+  if (!message) return;
+  
+  // Update message in local storage
+  message.deleted = true;
+  messages.set(messageId, message);
+  
+  // Update UI
+  const messageElement = document.getElementById(messageId);
+  if (messageElement) {
+    const bubbleElement = messageElement.querySelector('.message-bubble');
+    if (bubbleElement) {
+      // Replace message text with deletion notice
+      bubbleElement.innerHTML = `<span class="italic text-chat-text-secondary">This message was deleted</span>`;
+      bubbleElement.classList.add('deleted-message');
+    }
+  }
+  
+  // If we're replying to this message, cancel the reply
+  if (replyingToMessageId === messageId) {
+    cancelReply();
+  }
+}
+
+/**
+ * Start replying to a message
+ * @param {string} messageId - ID of the message to reply to
+ */
+function startReplyingToMessage(messageId) {
+  const message = messages.get(messageId);
+  if (!message) return;
+  
+  // Set replying state
+  replyingToMessageId = messageId;
+  
+  // Show reply banner
+  replyBanner.classList.remove('hidden');
+  
+  // Set reply preview text
+  const previewText = message.deleted 
+    ? '<span class="italic">This message was deleted</span>' 
+    : message.text.length > 50 ? message.text.substring(0, 50) + '...' : message.text;
+  
+  replyPreview.innerHTML = `
+    <span class="font-medium">${message.nickname}</span>: ${previewText}
+  `;
+  
+  // Focus input
+  messageInput.focus();
+  
+  // Cancel any active edit
+  cancelEdit();
+}
+
+/**
+ * Cancel replying to a message
+ */
+function cancelReply() {
+  replyingToMessageId = null;
+  replyBanner.classList.add('hidden');
+}
+
 // ===== Message Handling =====
 function sendMessage(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN || connectionStatus !== 'matched') {
     return false;
   }
   
+  // Generate message ID
+  const messageId = generateMessageId();
+  
+  // Create message data
   const messageData = {
     type: 'chat',
+    messageId: messageId,
     message: message,
-    nickname: nickname
+    nickname: nickname,
+    replyTo: replyingToMessageId
   };
   
+  // Send to server
   socket.send(JSON.stringify(messageData));
   
   // Add own message to chat
   handleChatMessage({
+    messageId: messageId,
     senderId: clientId,
     message: message,
-    nickname: nickname
+    nickname: nickname,
+    replyTo: replyingToMessageId
   }, true);
   
   // Send stopped-typing signal when sending a message
   sendTypingStatus(false);
+  
+  // Clear reply state if active
+  cancelReply();
   
   return true;
 }
@@ -283,15 +640,55 @@ function handleChatMessage(data, isOwn) {
     playNotificationSound();
   }
   
+  // Generate ID if not provided
+  const messageId = data.messageId || generateMessageId();
+  
+  // Store message in messages map
+  messages.set(messageId, {
+    id: messageId,
+    text: data.message,
+    nickname: data.nickname,
+    isOwn: isOwn,
+    timestamp: new Date(),
+    edited: false,
+    deleted: false,
+    replyTo: data.replyTo
+  });
+  
   // Create message element from template
   const messageElement = messageTemplate.content.cloneNode(true);
   const container = messageElement.querySelector('.message-container');
   const nicknameElement = messageElement.querySelector('.nickname');
   const bubbleElement = messageElement.querySelector('.message-bubble');
   
+  // Set message ID for reference
+  container.id = messageId;
+  
   // Set message content
   nicknameElement.textContent = data.nickname;
-  bubbleElement.textContent = data.message;
+  
+  // Handle reply if present
+  if (data.replyTo && messages.has(data.replyTo)) {
+    const replyToMessage = messages.get(data.replyTo);
+    const replyElement = document.createElement('div');
+    replyElement.className = 'reply-preview text-xs p-1 mb-1 border-l-2 border-chat-accent pl-2 text-chat-text-secondary';
+    
+    // Show reply preview
+    const replyText = replyToMessage.deleted 
+      ? '<span class="italic">This message was deleted</span>' 
+      : replyToMessage.text.length > 30 ? replyToMessage.text.substring(0, 30) + '...' : replyToMessage.text;
+    
+    replyElement.innerHTML = `
+      <span class="font-medium">${replyToMessage.nickname}</span>: ${replyText}
+    `;
+    
+    bubbleElement.appendChild(replyElement);
+  }
+  
+  // Add message text
+  const messageTextElement = document.createElement('div');
+  messageTextElement.textContent = data.message;
+  bubbleElement.appendChild(messageTextElement);
   
   // Style based on sender
   if (isOwn) {
@@ -302,6 +699,15 @@ function handleChatMessage(data, isOwn) {
     container.classList.add('mr-auto');
     bubbleElement.classList.add('bg-chat-surface', 'text-chat-text', 'border', 'border-chat-secondary', 'border-opacity-30');
   }
+  
+  // Add context menu on click
+  bubbleElement.addEventListener('click', (e) => {
+    e.stopPropagation();
+    
+    // Create and position context menu
+    const menu = createContextMenu(messageId, isOwn, bubbleElement);
+    bubbleElement.appendChild(menu);
+  });
   
   // Add to chat and scroll to bottom
   chatMessages.appendChild(messageElement);
@@ -422,6 +828,12 @@ messageForm.addEventListener('submit', (e) => {
   const message = messageInput.value.trim();
   if (message.length === 0 || message.length > MAX_MESSAGE_LENGTH) return;
   
+  // If editing, save edit instead of sending new message
+  if (editingMessageId) {
+    saveEdit();
+    return;
+  }
+  
   if (sendMessage(message)) {
     messageInput.value = '';
     messageInput.focus();
@@ -449,6 +861,11 @@ newChatBtn.addEventListener('click', () => {
   // Clear typing indicator
   hideTypingIndicator();
   
+  // Clear message state
+  messages.clear();
+  cancelReply();
+  cancelEdit();
+  
   // Generate new nickname
   nickname = generateNickname();
   nicknameElement.textContent = nickname;
@@ -463,6 +880,23 @@ newChatBtn.addEventListener('click', () => {
 
 // Sound toggle
 soundToggle.addEventListener('click', toggleSound);
+
+// Cancel reply button
+if (cancelReplyBtn) {
+  cancelReplyBtn.addEventListener('click', cancelReply);
+}
+
+// Cancel edit button
+if (cancelEditBtn) {
+  cancelEditBtn.addEventListener('click', cancelEdit);
+}
+
+// Close context menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (activeContextMenu && !activeContextMenu.contains(e.target)) {
+    removeContextMenu();
+  }
+});
 
 // Handle page visibility changes to manage connection
 document.addEventListener('visibilitychange', () => {

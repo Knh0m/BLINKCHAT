@@ -76,11 +76,28 @@ wss.on('connection', (ws) => {
         case 'stopped-typing':
           handleTypingStatus(ws, data, clientId, false);
           break;
+        case 'edit':
+          handleEditMessage(ws, data, clientId);
+          break;
+        case 'delete':
+          handleDeleteMessage(ws, data, clientId);
+          break;
         default:
           console.log(`Unknown message type: ${data.type}`);
       }
     } catch (error) {
       console.error('Error processing message:', error);
+      
+      // Send error back to client
+      try {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Failed to process message',
+          details: error.message
+        }));
+      } catch (sendError) {
+        console.error('Failed to send error message:', sendError);
+      }
     }
   });
   
@@ -105,13 +122,78 @@ function handleChatMessage(ws, data, senderId) {
   const partnerWs = clients.get(ws.partnerId);
   if (!partnerWs) return;
   
-  // Forward message to partner
+  // Forward message to partner with all fields including messageId and replyTo
   partnerWs.send(JSON.stringify({
     type: 'chat',
     senderId: senderId,
+    messageId: data.messageId || generateMessageId(),
+    message: message,
+    nickname: data.nickname,
+    replyTo: data.replyTo
+  }));
+}
+
+// Handle edit message requests between paired clients
+function handleEditMessage(ws, data, senderId) {
+  if (!ws.partnerId) return;
+  
+  // Validate required fields
+  if (!data.messageId || !data.message) {
+    return sendErrorToClient(ws, 'Invalid edit request: missing required fields');
+  }
+  
+  // Validate message length
+  const message = data.message.trim();
+  if (message.length === 0 || message.length > MAX_MESSAGE_LENGTH) {
+    return sendErrorToClient(ws, 'Invalid message length');
+  }
+  
+  // Get partner websocket
+  const partnerWs = clients.get(ws.partnerId);
+  if (!partnerWs) return;
+  
+  // Forward edit to partner
+  partnerWs.send(JSON.stringify({
+    type: 'edit',
+    senderId: senderId,
+    messageId: data.messageId,
     message: message,
     nickname: data.nickname
   }));
+}
+
+// Handle delete message requests between paired clients
+function handleDeleteMessage(ws, data, senderId) {
+  if (!ws.partnerId) return;
+  
+  // Validate required fields
+  if (!data.messageId) {
+    return sendErrorToClient(ws, 'Invalid delete request: missing messageId');
+  }
+  
+  // Get partner websocket
+  const partnerWs = clients.get(ws.partnerId);
+  if (!partnerWs) return;
+  
+  // Forward delete to partner
+  partnerWs.send(JSON.stringify({
+    type: 'delete',
+    senderId: senderId,
+    messageId: data.messageId,
+    nickname: data.nickname
+  }));
+}
+
+// Send error message to client
+function sendErrorToClient(ws, errorMessage) {
+  try {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: errorMessage
+    }));
+  } catch (error) {
+    console.error('Failed to send error message:', error);
+  }
 }
 
 // Handle typing status updates between paired clients
@@ -189,6 +271,11 @@ function handleDisconnect(clientId) {
 // Generate a unique client ID
 function generateClientId() {
   return Math.random().toString(36).substring(2, 10);
+}
+
+// Generate a unique message ID (for server-generated messages)
+function generateMessageId() {
+  return `srv_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 }
 
 // Heartbeat to detect and clean up dead connections
