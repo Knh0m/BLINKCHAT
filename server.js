@@ -62,6 +62,12 @@ wss.on('connection', (ws) => {
         case 'heartbeat':
           ws.isAlive = true;
           break;
+        case 'typing':
+          handleTypingStatus(ws, data, clientId, true);
+          break;
+        case 'stopped-typing':
+          handleTypingStatus(ws, data, clientId, false);
+          break;
         default:
           console.log(`Unknown message type: ${data.type}`);
       }
@@ -96,6 +102,22 @@ function handleChatMessage(ws, data, senderId) {
     type: 'chat',
     senderId: senderId,
     message: message,
+    nickname: data.nickname
+  }));
+}
+
+// Handle typing status updates between paired clients
+function handleTypingStatus(ws, data, senderId, isTyping) {
+  if (!ws.partnerId) return;
+  
+  // Get partner websocket
+  const partnerWs = clients.get(ws.partnerId);
+  if (!partnerWs) return;
+  
+  // Forward typing status to partner
+  partnerWs.send(JSON.stringify({
+    type: isTyping ? 'typing' : 'stopped-typing',
+    senderId: senderId,
     nickname: data.nickname
   }));
 }

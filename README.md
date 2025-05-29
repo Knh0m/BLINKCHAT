@@ -1,108 +1,63 @@
 # BlinkChat
 
-Ultra-minimal, zero-persist random chat—Omegle-lite in 2025 style.  
-Land → get a fun nickname → instantly paired with a stranger via WebSockets → chat in real-time. No accounts, no history, one page, ~200 kB total.
+BlinkChat is an ultra-minimal, real-time web chat that pairs strangers instantly.  
+It focuses on speed, privacy (zero persistence), and a polished user experience that works straight from a single command line run.
+
+## ✨ Key Features
+
+| Category | Description |
+|----------|-------------|
+| **Real-time Matching** | Instant random pairing via WebSockets with no sign-up. |
+| **Live Typing Indicator** | See “_User is typing…_” in real time for a more natural chat flow. |
+| **Subtle Notification Sound** | Modern “bip” sound on incoming messages (toggleable & remembered between sessions). |
+| **Modern, Polished UI** | Redesigned with Tailwind CSS, animated message bubbles, dark theme, responsive layout. |
+| **Zero Persistence** | Messages are never stored—when a chat ends, everything disappears. |
+| **One-Command Launch** | `npm install && npm start` is all you need. |
+
+## 🚀 Getting Started
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/Knh0m/BLINKCHAT.git
+   cd BLINKCHAT
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Run the app**
+
+   ```bash
+   npm start
+   ```
+
+4. **Open your browser**
+
+   Navigate to **http://localhost:3000** and start chatting!
+
+### Environment Variables (optional)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PORT`   | `3000`  | Change the server port. |
+
+## 🛠️ Technologies Used
+
+- **Node.js** & **Express** – Lightweight HTTP server.
+- **ws** – Bare-metal WebSocket library for real-time communication.
+- **Vanilla JavaScript** – No frontend framework, minimal bundle size.
+- **Tailwind CSS** – Utility-first styling for the modern UI.
+- **HTML5 Audio API** – Plays the notification “bip”.
+- **ES Modules** – Clean, modern JS module structure.
+
+## 📸 Screenshots / GIFs
+
+> _Coming soon – visual walkthroughs of the new design, typing indicator, and sound toggle._
 
 ---
 
-## Features
-- 🔀 **Random nickname** (`<Adjective><Animal>#<nn>`, e.g. `SwiftFox#92`)
-- 🤝 **One-line matchmaking** – first user waits, second user connects
-- ⚡ **Realtime messaging** – WebSockets (`ws`), text-only, 500 char limit
-- 🌓 **Minimal modern UI** – Tailwind CDN, dark mode, auto-scroll, fade-in bubbles, “New Chat” button
-- 🗑 **Zero persistence** – all conversations live in RAM
-- 🛡 **Heartbeat & cleanup** – 30 s ping to drop dead connections
-- 🚀 **Performance-first** – Lighthouse ≥ 95, page weight ≤ 200 kB
-
----
-
-## Quick Start ( ≤ 60 s)
-
-```bash
-git clone https://github.com/yourname/blinkchat
-cd blinkchat
-npm install
-npm start        # opens http://localhost:3000
-```
-
-Open two browser tabs to start chatting.
-
----
-
-## Local Development
-
-| Task | Command |
-|------|---------|
-| Install deps | `npm install` |
-| Start server | `npm start` |
-| Lint (optional) | _none – pure vanilla_ |
-| Port | `3000` (env `PORT` overrides) |
-
-Hot-reload isn’t needed—frontend JS is a single file; refresh to pick up changes.
-
----
-
-## One-Command Deploys
-
-| Platform | Command |
-|----------|---------|
-| **Railway** | `railway up` |
-| **Fly.io** | `fly launch --no-deploy && fly deploy` |
-| **Render** | `render.yaml` autodetected → press **Deploy** or run `render deploy` |
-
-> All services detect `npm start` and expose `PORT`.
-
----
-
-## Project Structure
-
-```
-blinkchat/
-├─ package.json        # deps & start script
-├─ server.js           # Express + ws (~120 LOC)
-└─ public/
-   ├─ index.html       # single page UI
-   ├─ main.js          # client logic (ESM)
-   └─ styles.css       # (unused – Tailwind CDN)
-```
-
-No build tools, no bundlers. Pure ES modules everywhere.
-
----
-
-## Technical Specs
-
-| Layer | Stack |
-|-------|-------|
-| Backend | Node 18+, Express 4, `ws` 8 |
-| Frontend | Vanilla JS, Tailwind CDN |
-| Transport | RFC 6455 WebSocket |
-| Matchmaking | single `waitingClient` variable (RAM only) |
-| Security | 500 char guard, XSS-safe text nodes, heartbeat cleanup |
-
----
-
-## Performance Notes
-
-* **Tiny payloads** – CDN Tailwind, gzipped HTML+JS ≤ 20 kB < 200 kB budget.
-* **No blocking scripts** – `type="module"` + HTTP/2 parallelism.
-* **Auto GC** – on `close`, sockets are removed; memory stays flat.
-* **Instant DOM updates** – minimal reflows; `scrollTop` after append.
-
----
-
-## Contributing
-
-1. Fork & clone  
-2. Create a feature branch (`git checkout -b feat/my-idea`)  
-3. Commit with conventional messages  
-4. Open a pull request – small, focused, well-described  
-5. Ensure `npm start` passes manual smoke test in two tabs
-
-All contributions must keep **zero-persist, no-build** philosophy.
-
----
-
-## License
-
-MIT © 2025 BlinkChat contributors
+Made with ❤️ for lightning-fast, anonymous conversations. Enjoy chatting!
