@@ -13,8 +13,16 @@ const MAX_MESSAGE_LENGTH = 500;
 const app = express();
 const server = http.createServer(app);
 
+// Serve static files from root directory for main.js
+app.use(express.static(__dirname));
+
 // Serve static files from 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// Serve index.html at the root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // Initialize WebSocket server
 const wss = new WebSocket.Server({ server });

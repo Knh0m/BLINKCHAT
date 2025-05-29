@@ -1,15 +1,36 @@
 // main.js - BlinkChat Frontend
 // Handles UI, WebSocket communication, and nickname generation
 
-// Import notification sound module
-import { playNotificationSound } from './public/sounds/notification.js';
-
 // ===== Configuration =====
 const WS_RECONNECT_DELAY = 3000; // 3 seconds
 const HEARTBEAT_INTERVAL = 25000; // 25 seconds (shorter than server's 30s)
 const MAX_MESSAGE_LENGTH = 500;
 const TYPING_DEBOUNCE_DELAY = 300; // ms delay for typing indicator
 const TYPING_TIMEOUT = 3000; // ms before typing indicator disappears
+
+// ===== Notification Sound =====
+// Base64 encoded MP3 data for a subtle notification sound
+const notificationSoundBase64 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADwAD///////////////////////////////////////////8AAAA8TEFNRTMuMTAwBK8AAAAAAAAAABUgJAMGQQABmgAAA8CC3YZfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
+
+/**
+ * Creates and returns a new Audio object with the notification sound
+ * @returns {Audio} HTML5 Audio object with the notification sound
+ */
+function createNotificationSound() {
+  return new Audio(notificationSoundBase64);
+}
+
+/**
+ * Plays the notification sound
+ * @returns {Promise} A promise that resolves when the sound finishes playing
+ */
+function playNotificationSound() {
+  const sound = createNotificationSound();
+  return sound.play().catch(error => {
+    // Handle autoplay restrictions
+    console.warn('Could not play notification sound:', error);
+  });
+}
 
 // ===== State =====
 let socket;
